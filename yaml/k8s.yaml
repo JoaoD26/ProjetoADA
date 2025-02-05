@@ -1,0 +1,54 @@
+#Service Account com Workload Identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-sa
+  namespace: default
+  annotations:
+    azure.workload.identity/client-id: "33472a73-1539-48d0-b69d-60e3dced9fe7"
+---
+
+#Deployment da Aplicação
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: app-sa
+      volumes:
+        - name: azure-storage
+          persistentVolumeClaim:
+            claimName: azure-pvc
+      containers:
+        - name: app
+          image: schwendler/embarque-ti-spd-project
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPD_KEY_VAULT_URI
+              value: "https://kv-joaod-projeto.vault.azure.net/"
+---
+
+#Service para Expor a Aplicação
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+spec:
+  selector:
+    app: app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer

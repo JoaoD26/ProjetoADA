@@ -1,9 +1,6 @@
-data "azuread_user" "current_user" {
-  user_principal_name = "seu.email@dominio.com"
-}
-
-variable "user_object_id" {
-  default = data.azuread_user.current_user.id
+variable "username"{
+    description = "Nome do usuário"
+    type        = string
 }
 
 variable "user_email" {
