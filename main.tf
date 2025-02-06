@@ -1,3 +1,26 @@
+#Resource-group
+resource "azurerm_resource_group" "rg-joaod-projeto" {
+  name     = "rg-joaod-projeto"
+  location = "brazilsouth"
+}
+
+# Network
+resource "azurerm_virtual_network" "aks_vnet" {
+  name                = "aks-vnet"
+  location            = azurerm_resource_group.rg-joaod-projeto.location
+  resource_group_name = azurerm_resource_group.rg-joaod-projeto.name
+  address_space       = ["10.0.0.0/16"]
+}
+
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = azurerm_resource_group.rg-joaod-projeto.name
+  virtual_network_name = azurerm_virtual_network.aks_vnet.name
+  address_prefixes     = ["10.0.1.0/24"] 
+
+  service_endpoints = ["Microsoft.Sql"]
+}
+
 #AKS
 resource "azurerm_kubernetes_cluster" "aks_joaod_projeto" {
   name                = "aks-joaod-projeto"
@@ -99,43 +122,6 @@ resource "azurerm_key_vault_access_policy" "aks_write_secret" {
     "Get", "List", "Set"
   ]
 }
-
-#managed identity -> Permissao pra ler a secret
-resource "azurerm_role_assignment" "kv_reader" {
-  scope                = azurerm_key_vault.kv_joaod_projeto.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
-}
-
-#configurar o firewall no banco de dados -> aks subnet
-resource "azurerm_mssql_virtual_network_rule" "db_aks_rule" {
-  name      = "allow-aks"
-  server_id = azurerm_mssql_server.db_joaod_projeto.id
-  subnet_id = var.subnet_id
-}
-
-resource "azurerm_public_ip" "public_ip_joaod" {
-  name                = "public-ip-joaod"
-  location            = "brazilsouth"
-  resource_group_name = "rg-joaod-projeto"
-  allocation_method   = "Static"
-}
-
-resource "azurerm_monitor_metric_alert" "cpu_alert" {
-  name                = "CPU Usage Percentage - aks-joaod-projeto"
-  resource_group_name = "rg-joaod-projeto"
-  scopes              = [azurerm_kubernetes_cluster.aks_joaod_projeto.id]
-  description         = "Alerta de uso de CPU para o AKS"
-
-  criteria {
-    metric_namespace = "Microsoft.ContainerService/managedClusters"
-    metric_name      = "node_cpu_usage_percentage"
-    aggregation      = "Average"
-    operator         = "GreaterThan"
-    threshold        = 95
-  }
-}
-
 resource "azurerm_key_vault_access_policy" "aks_kv_policy" {
   key_vault_id = azurerm_key_vault.kv_joaod_projeto.id
   tenant_id    = azurerm_user_assigned_identity.aks_identity.tenant_id
@@ -151,4 +137,31 @@ resource "azurerm_role_assignment" "kv_admin" {
   role_definition_name = "Key Vault Administrator"
   principal_id         = var.username
 }
+
+resource "azurerm_role_assignment" "kv_officer"{    
+  scope                = azurerm_key_vault.kv_joaod_projeto.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azuread_user.current_user.object_id
+}
+
+
+#managed identity -> Permissao pra ler a secret
+resource "azurerm_role_assignment" "kv_reader" {
+  scope                = azurerm_key_vault.kv_joaod_projeto.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.aks_identity.principal_id
+}
+
+#configurar o firewall no banco de dados -> aks subnet
+resource "azurerm_mssql_virtual_network_rule" "db_aks_rule" {
+  name      = "allow-aks"
+  server_id = azurerm_mssql_server.db_joaod_projeto.id
+  subnet_id = var.subnet_id
+}
+
+
+
+
+
+
 

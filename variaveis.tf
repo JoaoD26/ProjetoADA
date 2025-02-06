@@ -32,3 +32,11 @@ variable "subnet_id" {
     description = "ID da subnet"
     type        = string
 }
+
+data "azurerm_client_config" "current" {}
+
+
+data "azuread_user" "current_user" {
+  user_principal_name = var.username
+}
+
